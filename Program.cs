@@ -52,6 +52,8 @@ namespace Escc.Cms.FindResourcesInWrongGallery
 
         private static void traverser_TraversingPlaceholder(object sender, CmsEventArgs e)
         {
+            Console.WriteLine(e.Posting.UrlModePublished + ": " +e.Placeholder.Name);
+
             var image = e.Placeholder as ImagePlaceholder;
             if (image != null)
             {
