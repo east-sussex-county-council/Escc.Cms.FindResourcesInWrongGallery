@@ -18,6 +18,7 @@ namespace Escc.Cms.FindResourcesInWrongGallery
     class Program
     {
         private static List<ResourceToMove> resourcesToMove = new List<ResourceToMove>();
+        private static Dictionary<string, List<string>> resourcesUsedByGroups = new Dictionary<string, List<string>>();
 
         static void Main(string[] args)
         {
@@ -30,7 +31,15 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 var body = new StringBuilder();
                 foreach (ResourceToMove resource in resourcesToMove)
                 {
-                    body.Append("<p>Move from: ").Append(resource.CurrentPath).Append("<br />Move to: ").Append(resource.MoveToFolder).Append("</p>");
+                    body.Append("<p>Currently in: ").Append(resource.CurrentPath).Append("<br />Belongs in: ").Append(resource.MoveToFolder);
+                    if (resourcesUsedByGroups.ContainsKey(resource.Guid))
+                    {
+                        foreach (string cmsGroup in resourcesUsedByGroups[resource.Guid])
+                        {
+                            body.Append("<br />" + cmsGroup);
+                        }
+                    }
+                    body.Append("</p>");
                 }
 
                 using (var mail = new MailMessage(Environment.MachineName + "@eastsussex.gov.uk", "richard.mason@eastsussex.gov.uk"))
@@ -52,7 +61,7 @@ namespace Escc.Cms.FindResourcesInWrongGallery
 
         private static void traverser_TraversingPlaceholder(object sender, CmsEventArgs e)
         {
-            Console.WriteLine(e.Posting.UrlModePublished + ": " +e.Placeholder.Name);
+            Console.WriteLine(e.Posting.UrlModePublished + ": " + e.Placeholder.Name);
 
             var image = e.Placeholder as ImagePlaceholder;
             if (image != null)
@@ -95,7 +104,15 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 {
                     if (cmsGroup.ToUpperInvariant() == gallery.Name.ToUpperInvariant())
                     {
-                        // It's a match, so no problem here.
+                        // It's a match, so no problem here. But save details in case resource used across two groups.
+                        if (!resourcesUsedByGroups.ContainsKey(resource.Guid))
+                        {
+                            resourcesUsedByGroups.Add(resource.Guid, new List<string>());
+                        }
+                        if (!resourcesUsedByGroups[resource.Guid].Contains(cmsGroup))
+                        {
+                            resourcesUsedByGroups[resource.Guid].Add(cmsGroup);
+                        }
                         return true;
                     }
                 }
@@ -103,6 +120,7 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 // Getting here means we have a resource and a channel with a web author, but no matching name
                 resourcesToMove.Add(new ResourceToMove()
                     {
+                        Guid = resource.Guid,
                         CurrentPath = resource.Path,
                         MoveToFolder = cmsGroups[CmsRole.Editor][0]
                     });
@@ -113,6 +131,7 @@ namespace Escc.Cms.FindResourcesInWrongGallery
 
         private class ResourceToMove
         {
+            public string Guid { get; set; }
             public string CurrentPath { get; set; }
             public string MoveToFolder { get; set; }
         }
