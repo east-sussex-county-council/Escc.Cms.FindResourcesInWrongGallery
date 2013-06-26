@@ -17,8 +17,8 @@ namespace Escc.Cms.FindResourcesInWrongGallery
     /// </summary>
     class Program
     {
-        private static Dictionary<string, ResourceToMove> resourcesToMove = new Dictionary<string, ResourceToMove>();
-        private static Dictionary<string, List<string>> resourcesUsedByGroups = new Dictionary<string, List<string>>();
+        private static Dictionary<string, ResourceLocation> resourcesToMove = new Dictionary<string, ResourceLocation>();
+        private static Dictionary<string, ResourceLocation> resourcesUsed = new Dictionary<string, ResourceLocation>();
 
         static void Main(string[] args)
         {
@@ -29,19 +29,33 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 traverser.TraverseSite(PublishingMode.Unpublished, false);
 
                 var body = new StringBuilder("<ol>");
-                foreach (ResourceToMove resource in resourcesToMove.Values)
+                foreach (ResourceLocation resource in resourcesToMove.Values)
                 {
-                    body.Append("<li>Currently in: ").Append(resource.CurrentPath).Append("<br />Belongs in:<ul>");
-                    foreach (string folder in resource.MoveToFolder)
+                    body.Append("<li><b>").Append(resource.CurrentPath).Append("</b><br />Belongs in:<ul>");
+                    foreach (string folder in resource.BelongsInFolder)
                     {
                         body.Append("<li>").Append(folder).Append("</li>");
                     }
 
-                    if (resourcesUsedByGroups.ContainsKey(resource.Guid))
+                    if (resourcesUsed.ContainsKey(resource.Guid))
                     {
-                        foreach (string cmsGroup in resourcesUsedByGroups[resource.Guid])
+                        foreach (string cmsGroup in resourcesUsed[resource.Guid].BelongsInFolder)
                         {
-                            body.Append("<br />" + cmsGroup);
+                            body.Append("<li>").Append(cmsGroup).Append("</li>");
+                        }
+                    }
+                    body.Append("</ul>Used on:<ul>");
+
+                    foreach (string postingUrl in resource.UsedOnPages)
+                    {
+                        body.Append("<li><a href=\"http://webcontent").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
+                    }
+
+                    if (resourcesUsed.ContainsKey(resource.Guid))
+                    {
+                        foreach (string postingUrl in resourcesUsed[resource.Guid].UsedOnPages)
+                        {
+                            body.Append("<li><a href=\"http://webcontent").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
                         }
                     }
                     body.Append("</ul></li>");
@@ -111,56 +125,76 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                     if (cmsGroup.ToUpperInvariant() == gallery.Name.ToUpperInvariant())
                     {
                         // It's a match, so no problem here. But save details in case resource used across two groups.
-                        if (!resourcesUsedByGroups.ContainsKey(resource.Guid))
+                        if (!resourcesUsed.ContainsKey(resource.Guid))
                         {
-                            resourcesUsedByGroups.Add(resource.Guid, new List<string>());
+                            resourcesUsed.Add(resource.Guid, new ResourceLocation());
                         }
-                        if (!resourcesUsedByGroups[resource.Guid].Contains(cmsGroup))
+                        if (!resourcesUsed[resource.Guid].BelongsInFolder.Contains(cmsGroup))
                         {
-                            resourcesUsedByGroups[resource.Guid].Add(cmsGroup);
+                            resourcesUsed[resource.Guid].BelongsInFolder.Add(cmsGroup);
+                        }
+                        if (!resourcesUsed[resource.Guid].UsedOnPages.Contains(PostingUrl(e.Posting)))
+                        {
+                            resourcesUsed[resource.Guid].UsedOnPages.Add(PostingUrl(e.Posting));
                         }
                         return true;
                     }
                 }
 
                 // Getting here means we have a resource and a channel with a web author, but no matching name
-                FoundResourceToMove(resource, cmsGroups);
+                FoundResourceToMove(PostingUrl(e.Posting), resource, cmsGroups);
                 return false;
             }
             return true;
         }
 
-        private static void FoundResourceToMove(Resource resource, Dictionary<CmsRole, IList<string>> cmsGroups)
+        private static string PostingUrl(Posting posting)
         {
-            if (resourcesToMove.ContainsKey(resource.Guid))
+            if (posting.State == PostingState.Published)
             {
-                if (!resourcesToMove[resource.Guid].MoveToFolder.Contains(cmsGroups[CmsRole.Editor][0]))
-                {
-                    resourcesToMove[resource.Guid].MoveToFolder.Add(cmsGroups[CmsRole.Editor][0]);
-                }
+                return posting.UrlModePublished;
             }
             else
             {
-                var resourceToMove = new ResourceToMove()
+                return posting.UrlModeUnpublished;
+            }
+        }
+
+        private static void FoundResourceToMove(string postingUrl, Resource resource, Dictionary<CmsRole, IList<string>> cmsGroups)
+        {
+            if (!resourcesToMove.ContainsKey(resource.Guid))
+            {
+                var resourceToMove = new ResourceLocation()
                     {
                         Guid = resource.Guid,
                         CurrentPath = resource.Path
                     };
-                resourceToMove.MoveToFolder.Add(cmsGroups[CmsRole.Editor][0]);
                 resourcesToMove.Add(resource.Guid, resourceToMove);
+            }
+
+            if (!resourcesToMove[resource.Guid].BelongsInFolder.Contains(cmsGroups[CmsRole.Editor][0]))
+            {
+                resourcesToMove[resource.Guid].BelongsInFolder.Add(cmsGroups[CmsRole.Editor][0]);
+            }
+
+            if (!resourcesToMove[resource.Guid].UsedOnPages.Contains(postingUrl))
+            {
+                resourcesToMove[resource.Guid].UsedOnPages.Add(postingUrl);
             }
         }
 
-        private class ResourceToMove
+        private class ResourceLocation
         {
-            public ResourceToMove()
+            public ResourceLocation()
             {
-                this.MoveToFolder = new List<string>();
+                this.BelongsInFolder = new List<string>();
+                this.UsedOnPages = new List<string>();
             }
 
             public string Guid { get; set; }
             public string CurrentPath { get; set; }
-            public List<string> MoveToFolder { get; set; }
+            public List<string> BelongsInFolder { get; set; }
+            public List<string> UsedOnPages { get; set; }
         }
     }
 }
