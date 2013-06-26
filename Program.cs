@@ -111,7 +111,7 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                     if (cmsGroup.ToUpperInvariant() == gallery.Name.ToUpperInvariant())
                     {
                         // It's a match, so no problem here. But save details in case resource used across two groups.
-                        if (!resourcesToMove.ContainsKey(resource.Guid))
+                        if (!resourcesUsedByGroups.ContainsKey(resource.Guid))
                         {
                             resourcesUsedByGroups.Add(resource.Guid, new List<string>());
                         }
@@ -124,26 +124,31 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 }
 
                 // Getting here means we have a resource and a channel with a web author, but no matching name
-                if (resourcesToMove.ContainsKey(resource.Guid))
+                FoundResourceToMove(resource, cmsGroups);
+                return false;
+            }
+            return true;
+        }
+
+        private static void FoundResourceToMove(Resource resource, Dictionary<CmsRole, IList<string>> cmsGroups)
+        {
+            if (resourcesToMove.ContainsKey(resource.Guid))
+            {
+                if (!resourcesToMove[resource.Guid].MoveToFolder.Contains(cmsGroups[CmsRole.Editor][0]))
                 {
-                    if (!resourcesToMove[resource.Guid].MoveToFolder.Contains(cmsGroups[CmsRole.Editor][0]))
-                    {
-                        resourcesToMove[resource.Guid].MoveToFolder.Add(cmsGroups[CmsRole.Editor][0]);
-                    }
+                    resourcesToMove[resource.Guid].MoveToFolder.Add(cmsGroups[CmsRole.Editor][0]);
                 }
-                else
-                {
-                    var resourceToMove = new ResourceToMove()
+            }
+            else
+            {
+                var resourceToMove = new ResourceToMove()
                     {
                         Guid = resource.Guid,
                         CurrentPath = resource.Path
                     };
-                    resourceToMove.MoveToFolder.Add(cmsGroups[CmsRole.Editor][0]);
-                    resourcesToMove.Add(resourceToMove.Guid, resourceToMove);                   
-                }
-                return false;
+                resourceToMove.MoveToFolder.Add(cmsGroups[CmsRole.Editor][0]);
+                resourcesToMove.Add(resource.Guid, resourceToMove);
             }
-            return true;
         }
 
         private class ResourceToMove
