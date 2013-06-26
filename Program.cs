@@ -17,7 +17,7 @@ namespace Escc.Cms.FindResourcesInWrongGallery
     /// </summary>
     class Program
     {
-        private static List<ResourceToMove> resourcesToMove = new List<ResourceToMove>();
+        private static Dictionary<string, ResourceToMove> resourcesToMove = new Dictionary<string, ResourceToMove>();
         private static Dictionary<string, List<string>> resourcesUsedByGroups = new Dictionary<string, List<string>>();
 
         static void Main(string[] args)
@@ -28,10 +28,15 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 traverser.TraversingPlaceholder += new CmsEventHandler(traverser_TraversingPlaceholder);
                 traverser.TraverseSite(PublishingMode.Unpublished, false);
 
-                var body = new StringBuilder();
-                foreach (ResourceToMove resource in resourcesToMove)
+                var body = new StringBuilder("<ol>");
+                foreach (ResourceToMove resource in resourcesToMove.Values)
                 {
-                    body.Append("<p>Currently in: ").Append(resource.CurrentPath).Append("<br />Belongs in: ").Append(resource.MoveToFolder);
+                    body.Append("<li>Currently in: ").Append(resource.CurrentPath).Append("<br />Belongs in:<ul>");
+                    foreach (string folder in resource.MoveToFolder)
+                    {
+                        body.Append("<li>").Append(folder).Append("</li>");
+                    }
+
                     if (resourcesUsedByGroups.ContainsKey(resource.Guid))
                     {
                         foreach (string cmsGroup in resourcesUsedByGroups[resource.Guid])
@@ -39,8 +44,9 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                             body.Append("<br />" + cmsGroup);
                         }
                     }
-                    body.Append("</p>");
+                    body.Append("</ul></li>");
                 }
+                body.Append("</ol>");
 
                 using (var mail = new MailMessage(Environment.MachineName + "@eastsussex.gov.uk", "richard.mason@eastsussex.gov.uk"))
                 {
@@ -105,7 +111,7 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                     if (cmsGroup.ToUpperInvariant() == gallery.Name.ToUpperInvariant())
                     {
                         // It's a match, so no problem here. But save details in case resource used across two groups.
-                        if (!resourcesUsedByGroups.ContainsKey(resource.Guid))
+                        if (!resourcesToMove.ContainsKey(resource.Guid))
                         {
                             resourcesUsedByGroups.Add(resource.Guid, new List<string>());
                         }
@@ -118,12 +124,23 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 }
 
                 // Getting here means we have a resource and a channel with a web author, but no matching name
-                resourcesToMove.Add(new ResourceToMove()
+                if (resourcesToMove.ContainsKey(resource.Guid))
+                {
+                    if (!resourcesToMove[resource.Guid].MoveToFolder.Contains(cmsGroups[CmsRole.Editor][0]))
+                    {
+                        resourcesToMove[resource.Guid].MoveToFolder.Add(cmsGroups[CmsRole.Editor][0]);
+                    }
+                }
+                else
+                {
+                    var resourceToMove = new ResourceToMove()
                     {
                         Guid = resource.Guid,
-                        CurrentPath = resource.Path,
-                        MoveToFolder = cmsGroups[CmsRole.Editor][0]
-                    });
+                        CurrentPath = resource.Path
+                    };
+                    resourceToMove.MoveToFolder.Add(cmsGroups[CmsRole.Editor][0]);
+                    resourcesToMove.Add(resourceToMove.Guid, resourceToMove);                   
+                }
                 return false;
             }
             return true;
@@ -131,9 +148,14 @@ namespace Escc.Cms.FindResourcesInWrongGallery
 
         private class ResourceToMove
         {
+            public ResourceToMove()
+            {
+                this.MoveToFolder = new List<string>();
+            }
+
             public string Guid { get; set; }
             public string CurrentPath { get; set; }
-            public string MoveToFolder { get; set; }
+            public List<string> MoveToFolder { get; set; }
         }
     }
 }
