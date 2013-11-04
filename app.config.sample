@@ -1,8 +1,28 @@
 <?xml version="1.0"?>
 <configuration>
+    <configSections>
+        <sectionGroup name="EsccWebTeam.Cms">
+            <section name="IgnoreChannels" type="System.Configuration.NameValueSectionHandler, System, Version=1.0.5000.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"/>
+        </sectionGroup>
+    </configSections>
+
+    <appSettings>
+        <add key="EmailTo" value="email address"/>
+        <add key="EmailFrom" value="email adress"/>
+        <add key="BaseUrl" value="http://cms-hostname-here"/>
+    </appSettings>
+
     <connectionStrings>
         <add name="CMSDB" connectionString="connection string for MCMS database" />
     </connectionStrings>
+
+    <EsccWebTeam.Cms>
+        <IgnoreChannels>
+            <add key="{channel guid}" value="/channel-url" />
+            <add key="{channel guid}" value="/channel-url" />
+        </IgnoreChannels>
+    </EsccWebTeam.Cms>
+
     <startup>
         <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.0"/>
     </startup>

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Configuration;
 using System.Net.Mail;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -13,12 +15,13 @@ namespace Escc.Cms.FindResourcesInWrongGallery
 {
     /// <summary>
     /// When rearranging content in Resource Manager for web authors, it needs to be in the right gallery or they will not have access to save the page.
-    /// This tool is a one-off check to ensure resources are in the right gallery.
+    /// This tool checks to ensure resources are in the right gallery.
     /// </summary>
     class Program
     {
         private static Dictionary<string, ResourceLocation> resourcesToMove = new Dictionary<string, ResourceLocation>();
         private static Dictionary<string, ResourceLocation> resourcesUsed = new Dictionary<string, ResourceLocation>();
+        private static NameValueCollection ignoreChannels = ConfigurationManager.GetSection("EsccWebTeam.Cms/IgnoreChannels") as NameValueCollection;
 
         static void Main(string[] args)
         {
@@ -48,21 +51,21 @@ namespace Escc.Cms.FindResourcesInWrongGallery
 
                     foreach (string postingUrl in resource.UsedOnPages)
                     {
-                        body.Append("<li><a href=\"http://webcontent").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
+                        body.Append("<li><a href=\"").Append(ConfigurationManager.AppSettings["BaseUrl"]).Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
                     }
 
                     if (resourcesUsed.ContainsKey(resource.Guid))
                     {
                         foreach (string postingUrl in resourcesUsed[resource.Guid].UsedOnPages)
                         {
-                            body.Append("<li><a href=\"http://webcontent").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
+                            body.Append("<li><a href=\"").Append(ConfigurationManager.AppSettings["BaseUrl"]).Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
                         }
                     }
                     body.Append("</ul></li>");
                 }
                 body.Append("</ol>");
 
-                using (var mail = new MailMessage(Environment.MachineName + "@eastsussex.gov.uk", "richard.mason@eastsussex.gov.uk"))
+                using (var mail = new MailMessage(ConfigurationManager.AppSettings["EmailFrom"], ConfigurationManager.AppSettings["EmailTo"]))
                 {
                     mail.IsBodyHtml = true;
                     mail.Subject = "CMS resources to move";
@@ -81,6 +84,11 @@ namespace Escc.Cms.FindResourcesInWrongGallery
 
         private static void traverser_TraversingPlaceholder(object sender, CmsEventArgs e)
         {
+            if (ignoreChannels != null && !String.IsNullOrEmpty(ignoreChannels[e.Channel.Guid]))
+            {
+                return;
+            }
+
             Console.WriteLine(e.Posting.UrlModePublished + ": " + e.Placeholder.Name);
 
             var image = e.Placeholder as ImagePlaceholder;

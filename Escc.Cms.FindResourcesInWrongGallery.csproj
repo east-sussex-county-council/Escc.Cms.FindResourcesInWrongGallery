@@ -41,6 +41,7 @@
     <Reference Include="Microsoft.ContentManagement.Publishing, Version=5.0.1200.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" />
     <Reference Include="Microsoft.ContentManagement.Publishing.Extensions.Placeholders, Version=5.0.1200.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" />
     <Reference Include="System" />
+    <Reference Include="System.configuration" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
   </ItemGroup>
