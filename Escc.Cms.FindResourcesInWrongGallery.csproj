@@ -52,12 +52,17 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="app.config.sample" />
+    <None Include="LICENSE.md" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\VS Projects\eastsussex.gov.uk projects\EsccWebTeam.Cms\EsccWebTeam.Cms.csproj">
       <Project>{6710E9EE-DEAB-4569-ACE6-F10159D6D447}</Project>
       <Name>EsccWebTeam.Cms</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include=".gitignore" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
