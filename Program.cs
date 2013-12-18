@@ -31,49 +31,9 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 traverser.TraversingPlaceholder += new CmsEventHandler(traverser_TraversingPlaceholder);
                 traverser.TraverseSite(PublishingMode.Unpublished, false);
 
-                var body = new StringBuilder("<ol>");
-                foreach (ResourceLocation resource in resourcesToMove.Values)
-                {
-                    body.Append("<li><b>").Append(resource.CurrentPath).Append("</b><br />Belongs in:<ul>");
-                    foreach (string folder in resource.BelongsInFolder)
-                    {
-                        body.Append("<li>").Append(folder).Append("</li>");
-                    }
+                var body = BuildEmailHtml();
 
-                    if (resourcesUsed.ContainsKey(resource.Guid))
-                    {
-                        foreach (string cmsGroup in resourcesUsed[resource.Guid].BelongsInFolder)
-                        {
-                            body.Append("<li>").Append(cmsGroup).Append("</li>");
-                        }
-                    }
-                    body.Append("</ul>Used on:<ul>");
-
-                    foreach (string postingUrl in resource.UsedOnPages)
-                    {
-                        body.Append("<li><a href=\"").Append(ConfigurationManager.AppSettings["BaseUrl"]).Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
-                    }
-
-                    if (resourcesUsed.ContainsKey(resource.Guid))
-                    {
-                        foreach (string postingUrl in resourcesUsed[resource.Guid].UsedOnPages)
-                        {
-                            body.Append("<li><a href=\"").Append(ConfigurationManager.AppSettings["BaseUrl"]).Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
-                        }
-                    }
-                    body.Append("</ul></li>");
-                }
-                body.Append("</ol>");
-
-                using (var mail = new MailMessage(ConfigurationManager.AppSettings["EmailFrom"], ConfigurationManager.AppSettings["EmailTo"]))
-                {
-                    mail.IsBodyHtml = true;
-                    mail.Subject = "CMS resources to move";
-                    mail.Body = body.ToString();
-
-                    var smtp = new SmtpClient();
-                    smtp.Send(mail);
-                }
+                SendEmail(body);
             }
             catch (Exception ex)
             {
@@ -82,12 +42,66 @@ namespace Escc.Cms.FindResourcesInWrongGallery
             }
         }
 
+        private static void SendEmail(StringBuilder body)
+        {
+            using (var mail = new MailMessage(ConfigurationManager.AppSettings["EmailFrom"], ConfigurationManager.AppSettings["EmailTo"]))
+            {
+                mail.IsBodyHtml = true;
+                mail.Subject = "CMS resources to move";
+                mail.Body = body.ToString();
+
+                var smtp = new SmtpClient();
+                smtp.Send(mail);
+            }
+        }
+
+        private static StringBuilder BuildEmailHtml()
+        {
+            var body = new StringBuilder("<html><body style=\"font-family: Arial\"><ol>");
+            foreach (ResourceLocation resource in resourcesToMove.Values)
+            {
+                body.Append("<li><b>").Append(resource.CurrentPath).Append("</b><br />Belongs in:<ul>");
+                foreach (string folder in resource.BelongsInFolder)
+                {
+                    body.Append("<li>").Append(folder).Append("</li>");
+                }
+
+                if (resourcesUsed.ContainsKey(resource.Guid))
+                {
+                    foreach (string cmsGroup in resourcesUsed[resource.Guid].BelongsInFolder)
+                    {
+                        body.Append("<li>").Append(cmsGroup).Append("</li>");
+                    }
+                }
+                body.Append("</ul>Used on:<ul>");
+
+                foreach (string postingUrl in resource.UsedOnPages)
+                {
+                    body.Append("<li><a href=\"").Append(ConfigurationManager.AppSettings["BaseUrl"]).Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
+                }
+
+                if (resourcesUsed.ContainsKey(resource.Guid))
+                {
+                    foreach (string postingUrl in resourcesUsed[resource.Guid].UsedOnPages)
+                    {
+                        body.Append("<li><a href=\"").Append(ConfigurationManager.AppSettings["BaseUrl"]).Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
+                    }
+                }
+                body.Append("</ul></li>");
+            }
+            body.Append("</ol></body></html>");
+            return body;
+        }
+
         private static void traverser_TraversingPlaceholder(object sender, CmsEventArgs e)
         {
             if (ignoreChannels != null && !String.IsNullOrEmpty(ignoreChannels[e.Channel.Guid]))
             {
                 return;
             }
+
+            // Ignore expired postings
+            if (e.Posting.ExpiryDate <= DateTime.Now) return;
 
             Console.WriteLine(e.Posting.UrlModePublished + ": " + e.Placeholder.Name);
 
