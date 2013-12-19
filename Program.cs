@@ -73,20 +73,7 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                         body.Append("<li>").Append(cmsGroup).Append("</li>");
                     }
                 }
-                body.Append("</ul>Used on:<ul>");
 
-                foreach (string postingUrl in resource.UsedOnPages)
-                {
-                    body.Append("<li><a href=\"").Append(ConfigurationManager.AppSettings["BaseUrl"]).Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
-                }
-
-                if (resourcesUsed.ContainsKey(resource.Guid))
-                {
-                    foreach (string postingUrl in resourcesUsed[resource.Guid].UsedOnPages)
-                    {
-                        body.Append("<li><a href=\"").Append(ConfigurationManager.AppSettings["BaseUrl"]).Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("\">").Append(CmsUtilities.CorrectPublishedUrl(postingUrl)).Append("</a></li>");
-                    }
-                }
                 body.Append("</ul></li>");
             }
             body.Append("</ol></body></html>");
