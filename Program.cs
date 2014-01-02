@@ -17,23 +17,30 @@ namespace Escc.Cms.FindResourcesInWrongGallery
     /// When rearranging content in Resource Manager for web authors, it needs to be in the right gallery or they will not have access to save the page.
     /// This tool checks to ensure resources are in the right gallery.
     /// </summary>
+    /// <remarks>Use the <code>-reportconflicts</code> switch to include resources which belong in more than one gallery</remarks>
     class Program
     {
         private static Dictionary<string, ResourceLocation> resourcesToMove = new Dictionary<string, ResourceLocation>();
         private static Dictionary<string, ResourceLocation> resourcesUsed = new Dictionary<string, ResourceLocation>();
         private static NameValueCollection ignoreChannels = ConfigurationManager.GetSection("EsccWebTeam.Cms/IgnoreChannels") as NameValueCollection;
+        private static bool reportConflicts;
 
         static void Main(string[] args)
         {
             try
             {
+                reportConflicts = (args.Length == 1 && args[0].Length > 0 && args[0].ToUpperInvariant().Substring(1) == "REPORTCONFLICTS");
+
                 var traverser = new CmsTraverser();
                 traverser.TraversingPlaceholder += new CmsEventHandler(traverser_TraversingPlaceholder);
                 traverser.TraverseSite(PublishingMode.Unpublished, false);
 
                 var body = BuildEmailHtml();
 
-                SendEmail(body);
+                if (!String.IsNullOrEmpty(body))
+                {
+                    SendEmail(body);
+                }
             }
             catch (Exception ex)
             {
@@ -42,42 +49,65 @@ namespace Escc.Cms.FindResourcesInWrongGallery
             }
         }
 
-        private static void SendEmail(StringBuilder body)
+        private static void SendEmail(string body)
         {
             using (var mail = new MailMessage(ConfigurationManager.AppSettings["EmailFrom"], ConfigurationManager.AppSettings["EmailTo"]))
             {
                 mail.IsBodyHtml = true;
                 mail.Subject = "CMS resources to move";
-                mail.Body = body.ToString();
+                mail.Body = body;
 
                 var smtp = new SmtpClient();
                 smtp.Send(mail);
             }
         }
 
-        private static StringBuilder BuildEmailHtml()
+        private static string BuildEmailHtml()
         {
-            var body = new StringBuilder("<html><body style=\"font-family: Arial\"><ol>");
+            var body = new StringBuilder();
             foreach (ResourceLocation resource in resourcesToMove.Values)
             {
-                body.Append("<li><b>").Append(resource.CurrentPath).Append("</b><br />Belongs in:<ul>");
-                foreach (string folder in resource.BelongsInFolder)
+                if (ShouldReportResource(resource))
                 {
-                    body.Append("<li>").Append(folder).Append("</li>");
-                }
-
-                if (resourcesUsed.ContainsKey(resource.Guid))
-                {
-                    foreach (string cmsGroup in resourcesUsed[resource.Guid].BelongsInFolder)
+                    if (body.Length == 0)
                     {
-                        body.Append("<li>").Append(cmsGroup).Append("</li>");
+                        body.Append("<html><body style=\"font-family: Arial\"><ol>");
                     }
-                }
 
-                body.Append("</ul></li>");
+                    body.Append("<li><b>").Append(resource.CurrentPath).Append("</b><br />Belongs in:<ul>");
+                    foreach (string folder in resource.BelongsInFolder)
+                    {
+                        body.Append("<li>").Append(folder).Append("</li>");
+                    }
+
+                    if (resourcesUsed.ContainsKey(resource.Guid))
+                    {
+                        foreach (string cmsGroup in resourcesUsed[resource.Guid].BelongsInFolder)
+                        {
+                            body.Append("<li>").Append(cmsGroup).Append("</li>");
+                        }
+                    }
+
+                    body.Append("</ul></li>");
+                }
             }
-            body.Append("</ol></body></html>");
-            return body;
+            if (body.Length > 0) body.Append("</ol></body></html>");
+            return body.ToString();
+        }
+
+        /// <summary>
+        /// Should we include this resource in the report? Depends on -reportconflicts option.
+        /// </summary>
+        /// <param name="resource"></param>
+        /// <returns></returns>
+        private static bool ShouldReportResource(ResourceLocation resource)
+        {
+            int requiredGalleryCount = resource.BelongsInFolder.Count;
+            if (resourcesUsed.ContainsKey(resource.Guid))
+            {
+                requiredGalleryCount += resourcesUsed[resource.Guid].BelongsInFolder.Count;
+            }
+            return (requiredGalleryCount == 1 || reportConflicts);
         }
 
         private static void traverser_TraversingPlaceholder(object sender, CmsEventArgs e)
