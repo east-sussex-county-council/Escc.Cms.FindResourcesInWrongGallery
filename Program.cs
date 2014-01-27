@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Configuration;
+using System.Linq;
 using System.Net.Mail;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -21,8 +22,8 @@ namespace Escc.Cms.FindResourcesInWrongGallery
     class Program
     {
         private static Dictionary<string, ResourceLocation> resourcesToMove = new Dictionary<string, ResourceLocation>();
-        private static Dictionary<string, ResourceLocation> resourcesUsed = new Dictionary<string, ResourceLocation>();
-        private static NameValueCollection ignoreChannels = ConfigurationManager.GetSection("EsccWebTeam.Cms/IgnoreChannels") as NameValueCollection;
+        private static readonly Dictionary<string, ResourceLocation> resourcesUsed = new Dictionary<string, ResourceLocation>();
+        private static readonly NameValueCollection ignoreChannels = ConfigurationManager.GetSection("EsccWebTeam.Cms/IgnoreChannels") as NameValueCollection;
         private static bool reportConflicts;
 
         static void Main(string[] args)
@@ -34,6 +35,8 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 var traverser = new CmsTraverser();
                 traverser.TraversingPlaceholder += new CmsEventHandler(traverser_TraversingPlaceholder);
                 traverser.TraverseSite(PublishingMode.Unpublished, false);
+
+                SortResourcesToMove();
 
                 var body = BuildEmailHtml();
 
@@ -47,6 +50,18 @@ namespace Escc.Cms.FindResourcesInWrongGallery
                 ExceptionManager.Publish(ex);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Sorts the resources to move collection, because it's easier to work through the report in order
+        /// </summary>
+        private static void SortResourcesToMove()
+        {
+            var sortedKeys = new List<string>(resourcesToMove.Keys);
+            sortedKeys.Sort();
+
+            var sortedResources = sortedKeys.ToDictionary(key => key, key => resourcesToMove[key]);
+            resourcesToMove = sortedResources;
         }
 
         private static void SendEmail(string body)
